@@ -139,12 +139,12 @@ frame_i_t process_i_frame(uint16_t *i_buf)
 frame_p_t process_p_frame(uint16_t *v_buf, uint16_t *i_buf)
 {
     frame_p_t r;
-    static float offsetI = 1863.0f; // giá trị ADC với vref=3.36, và adc 12 bit
+    static float offsetI = 2045.0f; // giá trị ADC với vref=3.36, và adc 12 bit
     float sumI  = 0.0f;
     float filter_I = 0.0f;
     float sqI =0.0f; // square current (bình phương dòng điện)
     
-    static float offsetV = 1863.0f; // giá trị ADC với vref=3.36, và adc 12 bit
+    static float offsetV = 2045.0f; // giá trị ADC với vref=3.36, và adc 12 bit
     float sumV  = 0.0f;
     float filter_V = 0.0f;
     float sqV =0.0f; // square voltage (bình phương điện áp)
@@ -152,8 +152,8 @@ frame_p_t process_p_frame(uint16_t *v_buf, uint16_t *i_buf)
     float inst_p = 0.0f;
     float sum_p  = 0.0f;
 
-    float Vcal = 196.42f; // giá trị điện áp scale 220V / 1.018V(sau chia áp) / 1.01(gain)
-    float Ical = 1.94f;  // giá trị dòng điện scale 1000 / 51 * 1 / 10.1
+    float Vcal = 238.0f; // giá trị điện áp scale 220V / 1.018V(sau chia áp) / 1.01(gain)
+    float Ical = 2.3f;  // giá trị dòng điện scale 1000 / 51 * 1 / 10.1
 
     /* 1. Loại bỏ offset */
     for (int n = 0; n < FRAME_SAMPLES; n++) 
@@ -175,13 +175,13 @@ frame_p_t process_p_frame(uint16_t *v_buf, uint16_t *i_buf)
     
     }
 
-    for (int n = 0; n < (FRAME_SAMPLES - 4); n++) // Chạy đến 46 để n+4 không quá 50
+    for (int n = 0; n < (FRAME_SAMPLES - 5); n++) // Chạy đến 45 để n+5 không quá 50
     {
         // 1. Lấy giá trị V đã trừ offset tại vị trí n
         float v_now = (float)v_buf[n] - offsetV;
 
-        // 2. Lấy giá trị I đã trừ offset tại vị trí n + 4 (Bù pha)
-        float i_future = (float)i_buf[n + 4] - offsetI;
+        // 2. Lấy giá trị I đã trừ offset tại vị trí n + 5 (Bù pha)
+        float i_future = (float)i_buf[n + 5] - offsetI;
 
         // 3. Nhân công suất tức thời
         sum_p += v_now * i_future;
