@@ -48,7 +48,7 @@ uint8_t tx[FRAME_BYTES];
 volatile uint32_t ring_overwrite = 0;
 
 uint16_t s;			// variable for data
-volatile uint8_t flag = 1;	// variable for preload tx SPI first
+volatile uint8_t flag = 0;	// variable for preload tx SPI first
 uint8_t itr =0;
 uint8_t yes=0;
 uint8_t no=0;
@@ -100,7 +100,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
   UNUSED(GPIO_Pin);
   if(GPIO_Pin == GPIO_PIN_0)
   {
-  	  HAL_ADCEx_Calibration_Start(&hadc);
+  	  //HAL_ADCEx_Calibration_Start(&hadc);
   	  HAL_ADC_Start_DMA(&hadc, (uint32_t*)adc_dma_buf, 1);
   	  HAL_TIM_Base_Start(&htim1);
   }
@@ -156,17 +156,7 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 		//HAL_GPIO_WritePin(GPIOA, GPIO_PIN_2, 0);
 		//HAL_TIM_Base_Start_IT(&htim3);
 	}
-//	if(flag == 1)
-//	{
-//		flag = 0 ;
-//		ring_pop(&s);
-//		tx[0] = (uint8_t)(s & 0xFF);
-//		tx[1] = (uint8_t)(s >> 8);
-//		HAL_SPI_TransmitReceive_DMA(&hspi1, tx, rx, 2);
-//
-//		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_2, 0);
-//		HAL_TIM_Base_Start_IT(&htim3);
-//	}
+
 
 	// interrupt for data ready
 	itr++;
@@ -180,24 +170,54 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 //	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_2, 1);
 //	HAL_TIM_Base_Stop_IT(&htim3);
 //}
+
+void Switch_ADC_Gain_Channel(uint8_t cmd) {
+    ADC_ChannelConfTypeDef sConfig = {0};
+
+    // 1. Dừng ADC để cấu hình lại an toàn
+    HAL_ADC_Stop_DMA(&hadc);
+
+    // 2. QUAN TRỌNG: Xóa sạch các kênh đã chọn trước đó trong thanh ghi CHSELR
+    // Nếu không có dòng này, ADC sẽ quét cả kênh cũ và kênh mới
+    hadc.Instance->CHSELR = 0;
+
+    // 3. Thiết lập thông số chung
+    sConfig.Rank = ADC_RANK_CHANNEL_NUMBER;
+    sConfig.SamplingTime = ADC_SAMPLETIME_13CYCLES_5;
+
+    // 4. Chọn kênh dựa trên cmd từ SPI
+    if (cmd == 1) {
+        sConfig.Channel = ADC_CHANNEL_1;
+    } else if (cmd == 2) {
+        sConfig.Channel = ADC_CHANNEL_2;
+    } else {
+        return; // Lệnh không hợp lệ thì thoát
+    }
+
+    // 5. Cấu hình kênh vào ADC
+    if (HAL_ADC_ConfigChannel(&hadc, &sConfig) != HAL_OK) {
+        Error_Handler();
+    }
+
+}
 // ===== SPI callback after transmitting ===== //
 void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi)
 {
+	if (hspi->Instance == SPI1)
+	{
+		// Giả sử byte đầu tiên trong mảng nhận là lệnh cmd
+		uint8_t cmd = rx[0];
 
-//	 if (ring_pop(&s))
-//	 {
-//		 tx[0] = (uint8_t)(s & 0xFF);
-//		 tx[1] = (uint8_t)(s >> 8);
-//		 yes++;
-//	 }
-//	 else
-//	 {
-//		 tx[0] = 0;
-//		 tx[1] = 0;
-//		 no++;
-//	 }
-//	 // preload for next transmit
-//	 HAL_SPI_TransmitReceive_DMA(&hspi1, tx, rx, 2);
+		if (cmd == 1 || cmd ==2 )
+		{
+			// Gọi hàm chuyển kênh
+			Switch_ADC_Gain_Channel(cmd);
+			flag = 1;
+		}
+
+
+	}
+
 //
 //	 HAL_GPIO_WritePin(GPIOA, GPIO_PIN_2, 0);
 //	 HAL_TIM_Base_Start_IT(&htim3);
@@ -241,7 +261,7 @@ int main(void)
   MX_TIM1_Init();
   MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
-
+  HAL_SPI_TransmitReceive_DMA(&hspi1, tx, rx, 2);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -331,13 +351,20 @@ static void MX_ADC_Init(void)
   }
   /** Configure for the selected ADC regular channel to be converted.
   */
-  sConfig.Channel = ADC_CHANNEL_2;
-  sConfig.Rank = ADC_RANK_CHANNEL_NUMBER;
-  sConfig.SamplingTime = ADC_SAMPLETIME_13CYCLES_5;
-  if (HAL_ADC_ConfigChannel(&hadc, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
+//  sConfig.Channel = ADC_CHANNEL_1;
+//  sConfig.Rank = ADC_RANK_CHANNEL_NUMBER;
+//  sConfig.SamplingTime = ADC_SAMPLETIME_13CYCLES_5;
+//  if (HAL_ADC_ConfigChannel(&hadc, &sConfig) != HAL_OK)
+//  {
+//    Error_Handler();
+//  }
+//  /** Configure for the selected ADC regular channel to be converted.
+//  */
+//  sConfig.Channel = ADC_CHANNEL_2;
+//  if (HAL_ADC_ConfigChannel(&hadc, &sConfig) != HAL_OK)
+//  {
+//    Error_Handler();
+//  }
   /* USER CODE BEGIN ADC_Init 2 */
 
   /* USER CODE END ADC_Init 2 */

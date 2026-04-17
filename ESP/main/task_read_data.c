@@ -60,11 +60,11 @@ void task_read_data(void *pvParameters)
                 {
                     if (sample_i > 4000) // xử lý giá trị lỗi bất thường
                     {
-                        sample_i = 1850;
+                        sample_i = 2045; // gán về giá trị trung bình để tránh ảnh hưởng đến kết quả
                     }
                     i_buf_raw[i_idx] = sample_i;
                     //esp_rom_delay_us(50); // Delay 5 micro giây
-                    ESP_LOGI(TAG, "Read I sample: %d at idx=%d", sample_i, i_idx);
+                    //ESP_LOGI(TAG, "Read I sample: %d at idx=%d", sample_i, i_idx);
                     i_idx++;
                 }
             }
