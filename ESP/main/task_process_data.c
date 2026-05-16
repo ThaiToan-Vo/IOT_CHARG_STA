@@ -10,7 +10,7 @@
 #include <string.h>
 #include "esp_timer.h"
 #include "struct_common.h"
-
+#include <ssd1306.h>
 
 TaskHandle_t task_process_handle;
 static const char *TAG = "DATA_PROCESS";
@@ -80,6 +80,7 @@ void task_process_data(void *pvParameters)
         if (total_energy_wh >= Wh)
         {
             total_energy_wh = 0.0; // Reset năng lượng tích lũy khi đạt ngưỡng
+            Wh = 0.0; // Reset biến Wh trong struct_common để đồng bộ với OLED
             // reset các buffer tính toán của read data
             memset(frame.v_buf, 0, sizeof(frame.v_buf));
             memset(frame.i_buf, 0, sizeof(frame.i_buf));
@@ -88,6 +89,10 @@ void task_process_data(void *pvParameters)
             gpio_set_level(GPIO_NUM_33, 1);
             // gửi ISR_external để reset slave
             Ex_ISR_trigger();
+
+            ssd1306_clear_buffer();
+            ssd1306_print_str(20, 24, "FULL CHARGE", false);
+            ssd1306_display();
         }    
         // ===== Khi đủ AVG_FRAMES =====
         if (v_cnt >= AVG_FRAMES)

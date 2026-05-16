@@ -8,4 +8,5 @@
 #include "esp_wifi.h"
 
 void app_task_control_init(void);
+
 #endif /* TASK_CONTROL_H */

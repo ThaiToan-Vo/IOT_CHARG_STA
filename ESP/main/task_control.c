@@ -24,9 +24,12 @@ void spi_send_cmd(spi_device_handle_t dev, uint8_t cmd)
 }
 
 float Wh = 0.0f;
+
 void task_control(void *pvParameters)
 {
+    static int count = 0;  // Static: chỉ initialize một lần, persist qua các loop
     node_ctrl_t ctrl_data;
+    
     while(1)
     {
         if(xQueueReceive(control_node_queue, &ctrl_data, portMAX_DELAY) == pdTRUE)
@@ -39,9 +42,21 @@ void task_control(void *pvParameters)
             spi_send_cmd(spi_i, ctrl_data.gain); // Gửi lệnh khởi động cho Slave 
             vTaskDelay(pdMS_TO_TICKS(1));
 
-            Ex_ISR_Init();
+            // Lần thứ nhất: Init ISR (chỉ gọi một lần)
+            if (count == 0)
+            {
+                Ex_ISR_Init();
+                count++;
+            }
+            // Lần thứ 2+: Trigger ISR
+            else
+            {
+                Ex_ISR_trigger();
+            }
+            
             ESP_LOGI(TAG, "Received control data for Node %d: gain=%d, energy_cmd=%d",
                      ctrl_data.node_id, ctrl_data.gain, ctrl_data.energy_cmd);
+            
         }
     
         // Xử lý dữ liệu điều khiển nhận được từ gateway

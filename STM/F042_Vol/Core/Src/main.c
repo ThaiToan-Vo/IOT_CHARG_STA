@@ -107,7 +107,13 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 		  head = 0;
 		  tail = 0;
 		  ring_count = 0;
-		  //HAL_ADCEx_Calibration_Start(&hadc);
+		  // 1. Xóa cờ lỗi Overrun (OVR) phần cứng bằng Macro của HAL
+		  __HAL_SPI_CLEAR_OVRFLAG(&hspi1);
+
+		  // 2. Ép trạng thái phần mềm HAL về READY phòng trường hợp thư viện bị kẹt cờ ERROR
+		  hspi1.State = HAL_SPI_STATE_READY;
+		  // -------------------------------------------------
+
 		  HAL_ADC_Start_DMA(&hadc, (uint32_t*)adc_dma_buf, 1);
 		  HAL_TIM_Base_Start(&htim1);
 	  }
@@ -115,6 +121,11 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 	  {
 		  HAL_TIM_Base_Stop(&htim1);
 		  HAL_ADC_Stop_DMA(&hadc);
+
+		  // Đảm bảo dừng SPI DMA để reset các cờ trạng thái
+		  HAL_SPI_DMAStop(&hspi1);
+		  tx[0] = 0;
+		  tx[1] = 0;
 		  HAL_SPI_TransmitReceive_DMA(&hspi1, tx, rx, 2);
 	  }
   }

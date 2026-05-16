@@ -14,5 +14,5 @@ extern esp_err_t ret;
 
 void spi_bus_init(void);
 void Ex_ISR_Init(void);
-
+void Ex_ISR_trigger(void);
 #endif /* CONFIG_H */
