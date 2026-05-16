@@ -71,7 +71,7 @@ typedef struct {
 } frame_p_t;
 
 frame_p_t process_p_frame(uint16_t *v_buf, uint16_t *i_buf);
-
+void Ex_ISR_trigger(void);
 //=================================//
 
 

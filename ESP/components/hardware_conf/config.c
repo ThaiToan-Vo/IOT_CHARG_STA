@@ -104,3 +104,10 @@ void Ex_ISR_Init(void)
     gpio_isr_handler_add(INPUT_PIN, gpio_interrupt_handler, (void *)INPUT_PIN);
     //ESP_LOGI(TAG, "ISR DATA");
 }
+void Ex_ISR_trigger(void)
+{
+    gpio_set_level(13, 0);
+    vTaskDelay(pdMS_TO_TICKS(1)); // Đảm bảo giữ mức thấp đủ lâu để STM32 nhận được tín hiệu
+    gpio_set_level(13, 1);
+    //ESP_LOGI(TAG, "ISR triggered sampling");
+}

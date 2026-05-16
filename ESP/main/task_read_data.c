@@ -27,11 +27,11 @@ TaskHandle_t read_data_handle;
 
 
 //==== Read sample from SPI slave when ISR triggered ====//
+frame_data_t frame; // struct để gửi qua queue
 
 void task_read_data(void *pvParameters)
 {
     //ESP_LOGI(TAG, "task_read_data started, waiting for notification...");
-    frame_data_t frame; // struct để gửi qua queue
     int64_t start_time = 0;
     while(1)
     {    

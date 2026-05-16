@@ -1,6 +1,9 @@
 #include "process.h"
+#include "struct_common.h"
 
 static const char *TAG = "SPI_PROCESS";
+SemaphoreHandle_t spi_mutex = NULL;
+
 
 // convert ADC value
 float adc_to_vin(uint16_t adc)
@@ -23,27 +26,32 @@ bool spi_read_sample(spi_device_handle_t dev, uint16_t *out)
         ESP_LOGI(TAG, "ERROR: out is NULL\n");
         return false;
     }
-   
-    // Use static transaction to avoid stack corruption
-    static spi_transaction_t t;
-    memset(&t, 0, sizeof(spi_transaction_t));
-   
-    t.length = 16;
-    t.flags = SPI_TRANS_USE_RXDATA | SPI_TRANS_USE_TXDATA;
-    t.tx_data[0] = 0;
-    t.tx_data[1] = 0;
-
-
-    esp_err_t ret = spi_device_transmit(dev, &t);
-    if (ret != ESP_OK) 
+    if (xSemaphoreTake(spi_mutex, portMAX_DELAY) == pdTRUE) 
     {
-        ESP_LOGI(TAG, "SPI transmit failed: %d\n", ret);
-        return false;
+        // Use static transaction to avoid stack corruption
+        static spi_transaction_t t;
+        memset(&t, 0, sizeof(spi_transaction_t));
+    
+        t.length = 16;
+        t.flags = SPI_TRANS_USE_RXDATA | SPI_TRANS_USE_TXDATA;
+        t.tx_data[0] = 0;
+        t.tx_data[1] = 0;
+
+
+        esp_err_t ret = spi_device_transmit(dev, &t);
+        if (ret != ESP_OK) 
+        {
+            ESP_LOGI(TAG, "SPI transmit failed: %d\n", ret);
+            return false;
+        }
+
+
+        *out = t.rx_data[0]  | (t.rx_data[1] << 8 );
+        
+        xSemaphoreGive(spi_mutex);
+        return true;
     }
-
-
-    *out = t.rx_data[0]  | (t.rx_data[1] << 8 );
-    return true;
+    return false;
 }
 
 /*=== Process voltage ===*/
@@ -154,7 +162,7 @@ frame_p_t process_p_frame(uint16_t *v_buf, uint16_t *i_buf)
 
     float Vcal = 238.0f; // giá trị điện áp scale 220V / 1.018V(sau chia áp) / 1.01(gain)
     float Ical = 2.3f;  // giá trị dòng điện scale 1000 / 51 * 1 / 10.1
-
+    uint8_t k = 3;
     /* 1. Loại bỏ offset */
     for (int n = 0; n < FRAME_SAMPLES; n++) 
     {
@@ -175,13 +183,14 @@ frame_p_t process_p_frame(uint16_t *v_buf, uint16_t *i_buf)
     
     }
 
-    for (int n = 0; n < (FRAME_SAMPLES - 5); n++) // Chạy đến 45 để n+5 không quá 50
+    for (int n = 0; n < (FRAME_SAMPLES - k); n++) // Chạy đến 45 để n+5 không quá 50
     {
         // 1. Lấy giá trị V đã trừ offset tại vị trí n
         float v_now = (float)v_buf[n] - offsetV;
 
-        // 2. Lấy giá trị I đã trừ offset tại vị trí n + 5 (Bù pha)
-        float i_future = (float)i_buf[n + 5] - offsetI;
+        // 2. Lấy giá trị I đã trừ offset tại vị trí n + 4 (Bù pha)
+       
+        float i_future = (float)i_buf[n + k] - offsetI;
 
         // 3. Nhân công suất tức thời
         sum_p += v_now * i_future;
@@ -198,11 +207,11 @@ frame_p_t process_p_frame(uint16_t *v_buf, uint16_t *i_buf)
     float V_ratio = Vcal * 3.3f / 4095.0f;
     r.vrms    = sqrtf(sumV / FRAME_SAMPLES) * V_ratio;
 
-    r.p = (sum_p / (FRAME_SAMPLES - 4)) * I_ratio * V_ratio;
-    if(r.p < 2.0f)
-    {
-        r.p = 0.01f; // loại bỏ nhiễu khi không có tải
-    }
+    r.p = ( (sum_p / (FRAME_SAMPLES - k)) * I_ratio * V_ratio);
+    // if(r.p < 2.0f)
+    // {
+    //     r.p = 0.01f; // loại bỏ nhiễu khi không có tải
+    // }
     r.apparent_power = r.irms * r.vrms;
     
     r.pf = r.p / r.apparent_power;

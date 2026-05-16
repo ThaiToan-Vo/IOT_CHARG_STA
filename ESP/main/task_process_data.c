@@ -9,6 +9,8 @@
 #include "esp_log.h"
 #include <string.h>
 #include "esp_timer.h"
+#include "struct_common.h"
+
 
 TaskHandle_t task_process_handle;
 static const char *TAG = "DATA_PROCESS";
@@ -74,7 +76,19 @@ void task_process_data(void *pvParameters)
         pf_acc += p.pf;
         v_cnt++;
 
-        total_energy_wh += (double)p.p * delta_t_h;    
+        total_energy_wh += (double)p.p * delta_t_h;
+        if (total_energy_wh >= Wh)
+        {
+            total_energy_wh = 0.0; // Reset năng lượng tích lũy khi đạt ngưỡng
+            // reset các buffer tính toán của read data
+            memset(frame.v_buf, 0, sizeof(frame.v_buf));
+            memset(frame.i_buf, 0, sizeof(frame.i_buf));
+            // relay off
+            gpio_set_direction(GPIO_NUM_33, GPIO_MODE_OUTPUT);
+            gpio_set_level(GPIO_NUM_33, 1);
+            // gửi ISR_external để reset slave
+            Ex_ISR_trigger();
+        }    
         // ===== Khi đủ AVG_FRAMES =====
         if (v_cnt >= AVG_FRAMES)
         {
@@ -89,12 +103,12 @@ void task_process_data(void *pvParameters)
             pf_acc = 0.0f;
             v_cnt = 0;
             // ===== Gửi snapshot ổn định cho OLED =====
-            oled_data_t d = {
-                .v = v_latest,
-                .i = i_latest,
-                .p = p_latest,
-                .pf = pf_latest,
-                .wh = total_energy_wh // Gửi giá trị Wh mới nhất
+            power_data_t d = {
+                .voltage = v_latest,
+                .current = i_latest,
+                .power = p_latest,
+                .power_fac = pf_latest,
+                .energy = total_energy_wh // Gửi giá trị Wh mới nhất
             };
                 xQueueOverwrite(oled_queue, &d);
             }
@@ -107,6 +121,6 @@ void task_process_data(void *pvParameters)
 
 void app_task_process_data_init()
 {
-    oled_queue = xQueueCreate(1, sizeof(oled_data_t));
+    oled_queue = xQueueCreate(1, sizeof(power_data_t));
     xTaskCreatePinnedToCore(&task_process_data, "task_process_data", 4096, NULL, 4, &task_process_handle, 1);
 }

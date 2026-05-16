@@ -52,6 +52,7 @@ volatile uint8_t flag = 1;	// variable for preload tx SPI first
 uint8_t itr =0;
 uint8_t yes=0;
 uint8_t no=0;
+uint8_t trigg = 0;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -100,9 +101,22 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
   UNUSED(GPIO_Pin);
   if(GPIO_Pin == GPIO_PIN_0)
   {
-  	  HAL_ADCEx_Calibration_Start(&hadc);
-  	  HAL_ADC_Start_DMA(&hadc, (uint32_t*)adc_dma_buf, 1);
-  	  HAL_TIM_Base_Start(&htim1);
+	  trigg++;
+	  if (trigg % 2 != 0)
+	  {
+		  head = 0;
+		  tail = 0;
+		  ring_count = 0;
+		  //HAL_ADCEx_Calibration_Start(&hadc);
+		  HAL_ADC_Start_DMA(&hadc, (uint32_t*)adc_dma_buf, 1);
+		  HAL_TIM_Base_Start(&htim1);
+	  }
+	  else
+	  {
+		  HAL_TIM_Base_Stop(&htim1);
+		  HAL_ADC_Stop_DMA(&hadc);
+		  HAL_SPI_TransmitReceive_DMA(&hspi1, tx, rx, 2);
+	  }
   }
 }
 

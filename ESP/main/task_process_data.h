@@ -28,9 +28,9 @@
     float v;
     float i;
     float p;
-    float pf;
     double wh; // Thêm biến Wh
-    } oled_data_t;
+    float pf;
+    } charging_data_t;
 
     void app_task_process_data_init();
     
