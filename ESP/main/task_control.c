@@ -24,7 +24,7 @@ void spi_send_cmd(spi_device_handle_t dev, uint8_t cmd)
 }
 
 float Wh = 0.0f;
-
+uint8_t gain = 0;
 void task_control(void *pvParameters)
 {
     static int count = 0;  // Static: chỉ initialize một lần, persist qua các loop
@@ -39,7 +39,8 @@ void task_control(void *pvParameters)
 
             Wh = ctrl_data.energy_cmd; // Cập nhật giá trị Wh từ lệnh nhận được
 
-            spi_send_cmd(spi_i, ctrl_data.gain); // Gửi lệnh khởi động cho Slave 
+            gain = ctrl_data.gain;
+            spi_send_cmd(spi_i, gain); // Gửi lệnh khởi động cho Slave 
             vTaskDelay(pdMS_TO_TICKS(1));
 
             // Lần thứ nhất: Init ISR (chỉ gọi một lần)

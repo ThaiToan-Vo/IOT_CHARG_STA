@@ -103,3 +103,13 @@ void app_task_read_data_init()
     }
     xTaskCreatePinnedToCore(&task_read_data, "task_read_data", 4096, NULL, 5, &read_data_handle, 1);
 }
+
+// Function để reset buffer và index khi session kết thúc
+void reset_read_buffers(void)
+{
+    memset(v_buf_raw, 0, sizeof(v_buf_raw));
+    memset(i_buf_raw, 0, sizeof(i_buf_raw));
+    v_idx = 0;
+    i_idx = 0;
+    ESP_LOGI(TAG, "Read buffers and indices reset for new session");
+}

@@ -7,6 +7,7 @@
 #include "esp_now.h"
 #include "esp_wifi.h"
 
+extern uint8_t gain;
 void app_task_control_init(void);
 
 #endif /* TASK_CONTROL_H */

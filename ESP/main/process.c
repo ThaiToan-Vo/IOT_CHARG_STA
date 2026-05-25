@@ -1,6 +1,6 @@
 #include "process.h"
 #include "struct_common.h"
-
+#include "task_control.h"
 static const char *TAG = "SPI_PROCESS";
 SemaphoreHandle_t spi_mutex = NULL;
 
@@ -54,93 +54,6 @@ bool spi_read_sample(spi_device_handle_t dev, uint16_t *out)
     return false;
 }
 
-/*=== Process voltage ===*/
-
-frame_v_t process_v_frame(uint16_t *v_buf)
-{
-    frame_v_t r;
-    float mean = 0.0f;
-    float sum  = 0.0f;
-
-
-    /* 1. ADC -> Vin, tính mean */
-    for (int i = 0; i < FRAME_SAMPLES; i++) 
-    {
-        float vin = (v_buf[i] * VREF) / ADC_MAX;
-        mean += vin;
-    }
-    mean /= FRAME_SAMPLES;
-
-
-
-    /* 2. Trừ mean, tính RMS tại ADC */
-    for (int i = 0; i < FRAME_SAMPLES; i++) 
-    {
-        float vin = adc_to_vin(v_buf[i]);
-        float v_ac = vin - mean;
-        sum += v_ac * v_ac;
-    }
-
-
-    float vin_rms = sqrtf(sum / FRAME_SAMPLES);
-
-
-    /* 3. Scale RMS - từ Volt tham chiếu sang Volt thực tế */
-    r.vrms = vin_rms * V_SCALE;  
-   
-
-
-    return r;
-}
-
-/*=== Process current ===*/
-
-frame_i_t process_i_frame(uint16_t *i_buf)
-{
-    frame_i_t r;
-    static float offsetI = 1863.0f; // giá trị ADC với vref=3.36, và adc 12 bit
-    float sum  = 0.0f;
-    float filter_I = 0.0f;
-    float sqI =0.0f; // square current (bình phương dòng điện)
-
-
-    // for (int i = 0; i < FRAME_SAMPLES; i++) 
-    // {
-    //     offsetI += adc_to_vin(i_buf[i]);
-    // }
-    // offsetI /= FRAME_SAMPLES;
-
-
-    for (int i = 0; i < FRAME_SAMPLES; i++) 
-    {
-        // float i_ac = adc_to_vin(i_buf[i]) - offsetI;
-        // sum += i_ac * i_ac;
-
-        offsetI = (offsetI +(i_buf[i] - offsetI)/1024.0f);
-        filter_I = i_buf[i] - offsetI;
-        sqI = filter_I * filter_I;
-        sum += sqI;
-    }
-
-
-    float rms_adc = sqrtf(sum / FRAME_SAMPLES);
-
-
-    // /* Trừ noise RMS đúng bản chất */
-    // float rms_eff = 0.0f;
-    // if (rms_adc > I_ADC_RMS_NOISE) 
-    // {
-    //     rms_eff = sqrtf( rms_adc * rms_adc - I_ADC_RMS_NOISE * I_ADC_RMS_NOISE );
-    // }
-
-
-    r.irms    = rms_adc * 0.002775f ;  // thay đổi trực tiếp I_scale để kiểm tra 3.53f , 0.002775f là giá trị để biến đổi raw ADC và hệ số 
-    r.mean    = offsetI;
-    r.rms_adc = rms_adc;
-
-
-    return r;
-}
 
 /*=== Process average power ===*/
 
@@ -161,8 +74,18 @@ frame_p_t process_p_frame(uint16_t *v_buf, uint16_t *i_buf)
     float sum_p  = 0.0f;
 
     float Vcal = 238.0f; // giá trị điện áp scale 220V / 1.018V(sau chia áp) / 1.01(gain)
-    float Ical = 2.3f;  // giá trị dòng điện scale 1000 / 51 * 1 / 10.1
-    uint8_t k = 3;
+    float Ical_10 = 2.3f;  // giá trị dòng điện scale 1000 / 51 * 1 / 10.1
+    float Ical_1 = 21.95f;  // giá trị dòng điện scale 1000 / 51 * 1 / 1.01
+    float Ical = 0.0f;
+    uint8_t k = 1;
+    if (gain == 2)
+    {
+        Ical = Ical_10;
+    }
+    else
+    {
+        Ical = Ical_1;
+    }   
     /* 1. Loại bỏ offset */
     for (int n = 0; n < FRAME_SAMPLES; n++) 
     {
@@ -185,15 +108,17 @@ frame_p_t process_p_frame(uint16_t *v_buf, uint16_t *i_buf)
 
     for (int n = 0; n < (FRAME_SAMPLES - k); n++) // Chạy đến 45 để n+5 không quá 50
     {
-        // 1. Lấy giá trị V đã trừ offset tại vị trí n
-        float v_now = (float)v_buf[n] - offsetV;
+        // 1. Lấy giá trị I đã trừ offset tại vị trí n
+        float i_now = (float)i_buf[n] - offsetI;
 
-        // 2. Lấy giá trị I đã trừ offset tại vị trí n + 4 (Bù pha)
-       
-        float i_future = (float)i_buf[n + k] - offsetI;
+        // 2. Lấy giá trị V đã trừ offset tại vị trí n + 4 (Bù pha)
+        // float v_sample_1 = (float)v_buf[n ] - offsetV;
+        // float v_sample_2 = (float)v_buf[n + 1] - offsetV;
+        // float v_future = (v_sample_1 + v_sample_2) / 2.0f;
+        float v_future = (float)v_buf[n + k] - offsetV;
 
         // 3. Nhân công suất tức thời
-        sum_p += v_now * i_future;
+        sum_p += i_now * v_future;
         
     }
     float I_ratio = Ical * 3.3f / 4095.0f;

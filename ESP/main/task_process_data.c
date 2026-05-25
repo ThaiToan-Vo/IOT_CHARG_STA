@@ -56,7 +56,8 @@ void task_process_data(void *pvParameters)
             //memcpy(vp_buf, frame.v_buf, sizeof(vp_buf));
             memcpy(i_buf, frame.i_buf, sizeof(i_buf));
             //memcpy(ip_buf, frame.i_buf, sizeof(ip_buf));
-            
+
+
         // ===== Process voltage =====
         // frame_v_t v = process_v_frame(v_buf);
         // v_acc += v.vrms;
@@ -84,6 +85,7 @@ void task_process_data(void *pvParameters)
             // reset các buffer tính toán của read data
             memset(frame.v_buf, 0, sizeof(frame.v_buf));
             memset(frame.i_buf, 0, sizeof(frame.i_buf));
+            reset_read_buffers();  // Reset v_buf_raw, i_buf_raw, v_idx, i_idx
             // relay off
             gpio_set_direction(GPIO_NUM_33, GPIO_MODE_OUTPUT);
             gpio_set_level(GPIO_NUM_33, 1);
@@ -91,7 +93,7 @@ void task_process_data(void *pvParameters)
             Ex_ISR_trigger();
 
             ssd1306_clear_buffer();
-            ssd1306_print_str(20, 24, "FULL CHARGE", false);
+            ssd1306_print_str(20, 24, "SESSION ENDED", false);
             ssd1306_display();
         }    
         // ===== Khi đủ AVG_FRAMES =====

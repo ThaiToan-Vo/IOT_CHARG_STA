@@ -28,5 +28,6 @@ typedef struct {
 extern QueueHandle_t frame_queue;
 
 void app_task_read_data_init();
+void reset_read_buffers(void);  // Function để reset buffer và index
 
 #endif /* TASK_READ_DATA_H */

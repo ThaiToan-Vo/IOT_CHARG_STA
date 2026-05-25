@@ -31,7 +31,7 @@ void task_handshake(void *pvParameters)
             }
             
         }
-        vTaskDelay(pdMS_TO_TICKS(2000)); // Delay giữa các lần quét
+        vTaskDelay(pdMS_TO_TICKS(1000)); // Delay giữa các lần quét
     }
 }
 
